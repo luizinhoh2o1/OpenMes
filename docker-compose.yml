@@ -1,95 +1,91 @@
+# =============================================================================
+# OpenMES — Coolify (stack: backend + postgres)
+# Domínio: demo.openmes.valraw.com.br
+# =============================================================================
+# No painel Coolify:
+#   - Resource type: Docker Compose
+#   - Domains for backend: https://demo.openmes.valraw.com.br
+# =============================================================================
+# Variáveis OBRIGATÓRIAS no painel Coolify:
+#   POSTGRES_PASSWORD        # senha forte; gere com: openssl rand -base64 32
+#   APP_KEY                  # gere dentro do container: php artisan key:generate --show
+#   ADMIN_PASSWORD           # senha do admin
+# =============================================================================
+
 services:
   postgres:
-    image: 'postgres:17-alpine'
-    container_name: openmmes-postgres
+    image: postgres:17-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: '${POSTGRES_DB:-openmmes}'
-      POSTGRES_USER: '${POSTGRES_USER:-openmmes_user}'
-      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD:-openmmes_secret}'
+      POSTGRES_DB: ${POSTGRES_DB:-openmmes}
+      POSTGRES_USER: ${POSTGRES_USER:-openmmes_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openmmes_secret}
     volumes:
-      - 'postgres_data:/var/lib/postgresql/data'
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        - CMD-SHELL
-        - 'pg_isready -U ${POSTGRES_USER:-openmmes_user} -d ${POSTGRES_DB:-openmmes}'
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 5
-    networks:
-      - openmmes-network
+      retries: 10
+      start_period: 30s
+
   backend:
-    image: 'ghcr.io/mes-open/openmes:${OPENMES_VERSION:-latest}'
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    container_name: openmmes-backend
-    environment:
-      APP_NAME: '${APP_NAME:-OpenMES}'
-      APP_ENV: '${APP_ENV:-production}'
-      APP_DEBUG: '${APP_DEBUG:-false}'
-      APP_URL: '${APP_URL:-http://localhost}'
-      DB_CONNECTION: pgsql
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_DATABASE: '${POSTGRES_DB:-openmmes}'
-      DB_USERNAME: '${POSTGRES_USER:-openmmes_user}'
-      DB_PASSWORD: '${POSTGRES_PASSWORD:-openmmes_secret}'
-      ADMIN_USERNAME: '${ADMIN_USERNAME:-admin}'
-      ADMIN_EMAIL: '${ADMIN_EMAIL:-admin@openmmes.local}'
-      ADMIN_PASSWORD: '${ADMIN_PASSWORD:-Admin1234!}'
-    expose:
-      - '8000'
+    image: ghcr.io/mes-open/openmes:${OPENMES_VERSION:-latest}
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+    environment:
+      APP_NAME: ${APP_NAME:-OpenMES}
+      APP_ENV: ${APP_ENV:-production}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_KEY: ${APP_KEY:-}
+      APP_URL: ${APP_URL:-https://demo.openmes.valraw.com.br}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${POSTGRES_DB:-openmmes}
+      DB_USERNAME: ${POSTGRES_USER:-openmmes_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-openmmes_secret}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@openmmes.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin1234!}
     volumes:
-      - 'backend_storage:/var/www/html/storage'
-      - 'backend_cache:/var/www/html/bootstrap/cache'
-    restart: unless-stopped
+      - backend_storage:/var/www/html/storage
+      - backend_cache:/var/www/html/bootstrap/cache
+    expose:
+      - "8000"
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8000' 2>/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 40s
-    networks:
-      - openmmes-network
+
   mqtt-listener:
-    image: 'ghcr.io/mes-open/openmes:${OPENMES_VERSION:-latest}'
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    container_name: openmmes-mqtt-listener
-    command:
-      - php
-      - artisan
-      - 'mqtt:listen'
-      - '--connection=${MQTT_CONNECTION_ID:-1}'
-    environment:
-      APP_ENV: '${APP_ENV:-production}'
-      APP_KEY: '${APP_KEY}'
-      DB_CONNECTION: pgsql
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_DATABASE: '${POSTGRES_DB:-openmmes}'
-      DB_USERNAME: '${POSTGRES_USER:-openmmes_user}'
-      DB_PASSWORD: '${POSTGRES_PASSWORD:-openmmes_secret}'
-      BROADCAST_CONNECTION: log
+    image: ghcr.io/mes-open/openmes:${OPENMES_VERSION:-latest}
+    restart: unless-stopped
+    command: ["php", "artisan", "mqtt:listen", "--connection=${MQTT_CONNECTION_ID:-1}"]
     depends_on:
       postgres:
         condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      APP_KEY: ${APP_KEY:-}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${POSTGRES_DB:-openmmes}
+      DB_USERNAME: ${POSTGRES_USER:-openmmes_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-openmmes_secret}
+      BROADCAST_CONNECTION: log
     volumes:
-      - 'backend_storage:/var/www/html/storage'
-      - 'backend_cache:/var/www/html/bootstrap/cache'
-    restart: unless-stopped
-    networks:
-      - openmmes-network
+      - backend_storage:/var/www/html/storage
+      - backend_cache:/var/www/html/bootstrap/cache
     profiles:
       - connectivity
+
 volumes:
-  postgres_data: null
-  backend_storage: null
-  backend_cache: null
-networks:
-  openmmes-network:
-    driver: bridge
+  postgres_data:
+  backend_storage:
+  backend_cache:
