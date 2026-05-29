@@ -28,7 +28,9 @@ services:
       retries: 10
       start_period: 30s
   backend:
-    image: ghcr.io/mes-open/openmes:${OPENMES_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     depends_on:
       postgres:
@@ -60,7 +62,9 @@ services:
       retries: 5
       start_period: 40s
   mqtt-listener:
-    image: ghcr.io/mes-open/openmes:${OPENMES_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     command: ["php", "artisan", "mqtt:listen", "--connection=${MQTT_CONNECTION_ID:-1}"]
     depends_on:
