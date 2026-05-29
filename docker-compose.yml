@@ -11,7 +11,6 @@
 #   APP_KEY                  # gere dentro do container: php artisan key:generate --show
 #   ADMIN_PASSWORD           # senha do admin
 # =============================================================================
-
 services:
   postgres:
     image: postgres:17-alpine
@@ -28,7 +27,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-
   backend:
     image: ghcr.io/mes-open/openmes:${OPENMES_VERSION:-latest}
     restart: unless-stopped
@@ -56,12 +54,11 @@ services:
     expose:
       - "8000"
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8000' 2>/dev/null || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 40s
-
   mqtt-listener:
     image: ghcr.io/mes-open/openmes:${OPENMES_VERSION:-latest}
     restart: unless-stopped
@@ -84,7 +81,6 @@ services:
       - backend_cache:/var/www/html/bootstrap/cache
     profiles:
       - connectivity
-
 volumes:
   postgres_data:
   backend_storage:
